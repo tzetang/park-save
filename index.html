@@ -26,6 +26,14 @@
             padding: 0 !important;
             box-shadow: none !important;
         }
+        .snap-button-pos {
+            position: fixed !important;
+            bottom: 2.5rem; /* Corresponds to bottom-10 */
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 32rem; /* Corresponds to max-w-lg */
+            width: calc(100% - 2rem); /* Accounts for padding on body/main */
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 flex flex-col h-screen min-h-0 box-border">
@@ -50,8 +58,8 @@
         <video id="video-element" class="w-full h-full object-contain" autoplay playsinline></video>
     </div>
     <!-- Button to open camera -->
-    <button id="camera-button" class="bg-cyan-500 hover:bg-cyan-600 transition-colors text-white text-lg font-bold w-full py-3 px-8 rounded-xl shadow-lg sticky bottom-10 z-20 mx-auto">
-        Open Camera
+    <button id="camera-button" class="bg-cyan-500 hover:bg-cyan-600 transition-colors text-white text-lg font-bold w-full py-3 px-8 rounded-xl shadow-lg sticky bottom-10 z-20 mx-auto camera-button-fixed">
+        Update Pic
     </button>
 </main>
 <!-- Disclaimer as sticky footer -->
@@ -100,9 +108,10 @@
             cameraContainer.classList.add('fullscreen');
             // Hide the photo container
             document.getElementById('photo-container').style.display = 'none';
-            // Show the camera button for snapping a photo and bring it to the front
+            // Show the camera button and fix its position
             cameraButton.style.display = '';
             cameraButton.style.zIndex = '10000';
+            cameraButton.classList.add('snap-button-pos');
             try {
                 const constraints = { video: { facingMode: 'environment' } };
                 cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -129,7 +138,8 @@
             document.getElementById('photo-container').style.display = '';
             cameraButton.style.display = '';
             cameraButton.style.zIndex = ''; // Reset z-index
-            cameraButton.textContent = 'Replace Pic';
+            cameraButton.classList.remove('snap-button-pos');
+            cameraButton.textContent = 'Update Pic';
         }
 
         function snapPicture() {
