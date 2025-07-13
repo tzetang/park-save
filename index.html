@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- This meta tag is crucial for mobile responsiveness -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Park Save</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -11,169 +10,169 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom font and base styles */
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        /* Style for the snap button's outer ring */
-        #snap-button {
-            box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.5);
+        .fullscreen {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background: black;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 flex flex-col items-center min-h-screen p-4 box-border">
+<body class="bg-gray-900 text-gray-200 flex flex-col h-screen min-h-0 box-border">
 
-    <!-- Header Section -->
-    <header class="text-center w-full">
+    <!-- Header -->
+    <header class="text-center w-full mb-4">
         <h1 class="text-4xl font-bold text-cyan-400">
             <span class="text-5xl align-middle">🚗</span> Park Save
         </h1>
-        <p class="text-gray-500 mt-2">Save a temporary photo of your parking spot.</p>
     </header>
 
-    <!-- Content Wrapper -->
-        <div class="flex flex-col items-center w-full max-w-lg">
-        <!-- Photo Display Area -->
-                <main id="photo-container" class="w-full bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-4 flex flex-grow items-center justify-center max-h-[75vh]">
-            <img id="saved-photo" class="w-full h-full object-contain hidden" alt="Your saved parking spot photo">
-            <p id="placeholder-text" class="p-8 text-center text-gray-500">No photo saved yet. Take one below!</p>
-        </main>
-
-        <!-- Main Action Button -->
-        <footer class="w-full">
-            <button id="action-button" class="bg-cyan-500 hover:bg-cyan-600 transition-colors text-white text-lg font-bold w-full py-4 px-8 rounded-xl shadow-lg">
-                Take / Replace Picture
-            </button>
-        </footer>
+    <!-- Main Content -->
+    <main class="flex flex-col flex-1 min-h-0 w-full max-w-lg mx-auto relative">
+    <!-- Last Photo Display -->
+    <div id="photo-container" class="flex-1 min-h-0 flex flex-col justify-center items-center bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-1">
+        <img id="saved-photo" class="w-full h-full object-contain hidden" alt="Your saved parking spot photo">
+        <p id="placeholder-text" class="p-4 text-center text-gray-500">No photo saved yet</p>
     </div>
-
-    <!-- Fullscreen Camera View (Initially Hidden) -->
-    <div id="camera-view" class="fixed inset-0 bg-black z-50 hidden flex-col justify-end items-center">
-        <!-- The video element will fill the screen -->
-        <video id="video-element" class="absolute top-0 left-0 w-full h-full object-cover" autoplay playsinline></video>
-        
-        <!-- Snap Button -->
-        <button id="snap-button" class="relative w-16 h-16 bg-white rounded-full cursor-pointer mb-12 transition"></button>
-        
-        <!-- Hidden canvas for processing the image -->
-        <canvas id="canvas-element" class="hidden"></canvas>
+    <p id="timestamp" class="text-gray-500 text-sm text-center mb-1 h-5"></p>
+    <!-- Live Camera View (hidden by default) -->
+    <div id="camera-container" class="hidden flex-1 min-h-0 flex flex-col justify-center items-center bg-black border border-gray-700 rounded-xl overflow-hidden mb-1">
+        <video id="video-element" class="w-full h-full object-contain" autoplay playsinline></video>
     </div>
+    <!-- Button to open camera -->
+    <button id="camera-button" class="bg-cyan-500 hover:bg-cyan-600 transition-colors text-white text-lg font-bold w-full py-3 px-8 rounded-xl shadow-lg sticky bottom-10 z-20 mx-auto">
+        Open Camera
+    </button>
+</main>
+<!-- Disclaimer as sticky footer -->
+<footer class="w-full text-xs text-gray-500 text-center py-2 bg-gray-900 sticky bottom-0 z-10">
+    All photos are stored locally on your device and are never uploaded to the cloud or any server.
+</footer>
+
+    <!-- Hidden canvas for processing the image -->
+    <canvas id="canvas-element" class="hidden"></canvas>
 
     <script>
         // --- DOM Element Selection ---
         const savedPhoto = document.getElementById('saved-photo');
         const placeholderText = document.getElementById('placeholder-text');
-        const actionButton = document.getElementById('action-button');
-        const cameraView = document.getElementById('camera-view');
+        const timestampEl = document.getElementById('timestamp');
         const video = document.getElementById('video-element');
-        const snapButton = document.getElementById('snap-button');
+        const cameraButton = document.getElementById('camera-button');
+        const cameraContainer = document.getElementById('camera-container');
         const canvas = document.getElementById('canvas-element');
         const context = canvas.getContext('2d');
 
         // --- Constants and State ---
-        const STORAGE_KEY = 'park-save-photo';
-        let currentStream = null;
+        const PHOTO_STORAGE_KEY = 'park-save-photo';
+        const TIMESTAMP_STORAGE_KEY = 'park-save-timestamp';
+        let cameraStream = null;
 
         // --- Core Functions ---
 
-        /**
-         * Displays the provided image data in the main view.
-         * @param {string} imageDataUrl - The Base64 data URL of the image.
-         */
-        function showPhoto(imageDataUrl) {
+        function showPhoto(imageDataUrl, timeString) {
             savedPhoto.src = imageDataUrl;
             savedPhoto.classList.remove('hidden');
             placeholderText.classList.add('hidden');
+            timestampEl.textContent = timeString ? `Taken: ${timeString}` : '';
         }
 
-        /**
-         * Starts the device camera and displays the feed.
-         */
-        async function startCamera() {
-            // Ensure we can access media devices
+        async function openCamera() {
             if (!('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices)) {
                 alert('Camera not available on this device.');
                 return;
             }
-
+            // Hide header and footer for fullscreen effect
+            document.querySelector('header').style.display = 'none';
+            document.querySelector('footer').style.display = 'none';
+            // Expand camera container to fullscreen
+            cameraContainer.classList.remove('hidden');
+            cameraContainer.classList.add('fullscreen');
+            // Hide the photo container and camera button
+            document.getElementById('photo-container').style.display = 'none';
+            cameraButton.style.display = 'none';
             try {
-                // Define constraints to prefer the rear camera
-                const constraints = {
-                    video: {
-                        facingMode: 'environment' // 'environment' for rear, 'user' for front
-                    }
-                };
-                
-                // Request camera access
-                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = currentStream;
-                
-                // Show the camera view
-                cameraView.style.display = 'flex'; // Use flex to enable justify/align
+                const constraints = { video: { facingMode: 'environment' } };
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = cameraStream;
+                cameraContainer.classList.remove('hidden');
+                cameraButton.textContent = 'Snap Pic';
             } catch (error) {
                 console.error("Error accessing camera: ", error);
-                alert("Could not access the camera. Please ensure you've given permission in your browser settings.");
-                stopCamera(); // Clean up if something went wrong
+                alert("Could not access camera. Please give permission in browser settings.");
             }
         }
 
-        /**
-         * Stops the camera stream and hides the camera view.
-         */
-        function stopCamera() {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
+        function closeCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
             }
-            cameraView.style.display = 'none';
+            video.srcObject = null;
+            cameraContainer.classList.remove('fullscreen');
+            cameraContainer.classList.add('hidden');
+            // Restore UI
+            document.querySelector('header').style.display = '';
+            document.querySelector('footer').style.display = '';
+            document.getElementById('photo-container').style.display = '';
+            cameraButton.style.display = '';
+            cameraButton.textContent = 'Replace Pic';
         }
 
-        /**
-         * Captures a photo from the video stream, saves it, and displays it.
-         */
         function snapPicture() {
-            // Set the canvas dimensions to match the video's intrinsic size
+            if (!video.srcObject) {
+                alert('Camera is not active.');
+                return;
+            }
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-
-            // Draw the current video frame onto the hidden canvas
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Convert the canvas content to a JPEG data URL. 0.9 is high quality.
+            
             const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const captureTime = new Date();
+            const timeString = captureTime.toLocaleString();
 
-            // Save the new image to localStorage, overwriting the old one
             try {
-                localStorage.setItem(STORAGE_KEY, imageDataUrl);
+                localStorage.setItem(PHOTO_STORAGE_KEY, imageDataUrl);
+                localStorage.setItem(TIMESTAMP_STORAGE_KEY, timeString);
             } catch (e) {
                 console.error("Storage failed: " + e);
-                alert("Could not save the photo. Your browser's storage might be full.");
+                alert("Could not save photo. Storage might be full.");
             }
 
-            // Display the newly captured photo
-            showPhoto(imageDataUrl);
-
-            // Turn off the camera and hide the view
-            stopCamera();
+            showPhoto(imageDataUrl, timeString);
+            closeCamera();
         }
 
         // --- Event Listeners ---
 
-        /**
-         * On page load, check for a previously saved photo in localStorage.
-         */
         window.addEventListener('load', () => {
-            const savedImage = localStorage.getItem(STORAGE_KEY);
+            const savedImage = localStorage.getItem(PHOTO_STORAGE_KEY);
+            const savedTime = localStorage.getItem(TIMESTAMP_STORAGE_KEY);
             if (savedImage) {
-                showPhoto(savedImage);
+                showPhoto(savedImage, savedTime);
+            } else {
+                placeholderText.textContent = 'No photo saved yet';
             }
         });
 
-        // Add click listener to the main button to start the camera.
-        actionButton.addEventListener('click', startCamera);
-
-        // Add click listener to the snap button to capture the photo.
-        snapButton.addEventListener('click', snapPicture);
-
+        cameraButton.addEventListener('click', () => {
+            if (cameraContainer.classList.contains('hidden')) {
+                openCamera();
+            } else {
+                snapPicture();
+            }
+        });
     </script>
 </body>
 </html>
