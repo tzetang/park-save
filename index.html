@@ -98,9 +98,10 @@
             // Expand camera container to fullscreen
             cameraContainer.classList.remove('hidden');
             cameraContainer.classList.add('fullscreen');
-            // Hide the photo container and camera button
+            // Hide the photo container
             document.getElementById('photo-container').style.display = 'none';
-            cameraButton.style.display = 'none';
+            // Show the camera button for snapping a photo
+            cameraButton.style.display = '';
             try {
                 const constraints = { video: { facingMode: 'environment' } };
                 cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
