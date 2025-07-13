@@ -100,8 +100,9 @@
             cameraContainer.classList.add('fullscreen');
             // Hide the photo container
             document.getElementById('photo-container').style.display = 'none';
-            // Show the camera button for snapping a photo
+            // Show the camera button for snapping a photo and bring it to the front
             cameraButton.style.display = '';
+            cameraButton.style.zIndex = '10000';
             try {
                 const constraints = { video: { facingMode: 'environment' } };
                 cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -127,6 +128,7 @@
             document.querySelector('footer').style.display = '';
             document.getElementById('photo-container').style.display = '';
             cameraButton.style.display = '';
+            cameraButton.style.zIndex = ''; // Reset z-index
             cameraButton.textContent = 'Replace Pic';
         }
 
